@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Location {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String
+  active    Boolean  @default(true)
+  favorite  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  visits         Visit[]
+  mileageFrom    Mileage[]  @relation("MileageFrom")
+  mileageTo      Mileage[]  @relation("MileageTo")
+  planStops      PlanStop[]
+}
+
+model Visit {
+  id              Int       @id @default(autoincrement())
+  locationId      Int
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Int?
+  notes           String?
+  syncStatus      String    @default("synced") // synced | pending | conflict (used for offline queue reconciliation)
+  clientId        String?   @unique // id generated offline by the PWA, used for idempotent sync
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  location Location @relation(fields: [locationId], references: [id])
+  tickets  Ticket[]
+  mileage  Mileage? // mileage record arriving INTO this visit, from the previous visit's location
+
+  @@index([locationId])
+  @@index([startTime])
+}
+
+model Ticket {
+  id            Int      @id @default(autoincrement())
+  visitId       Int
+  ticketNumber  String
+  createdAt     DateTime @default(now())
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId])
+}
+
+model Mileage {
+  id               Int      @id @default(autoincrement())
+  visitId          Int      @unique
+  fromLocationId   Int?
+  toLocationId     Int?
+  fromLocationName String
+  toLocationName   String
+  distanceMiles    Float
+  estimated        Boolean  @default(false) // true when provider unavailable and value was entered manually or defaulted to 0
+  createdAt        DateTime @default(now())
+
+  visit        Visit     @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  fromLocation Location? @relation("MileageFrom", fields: [fromLocationId], references: [id])
+  toLocation   Location? @relation("MileageTo", fields: [toLocationId], references: [id])
+}
+
+
+// A working list for planning the day's stop order. Not tied to a specific calendar date -
+// the tech builds it each morning, works through it, and clears it when the day's done.
+// Supports both regular saved Locations and one-off addresses (on-call/coverage visits).
+model PlanStop {
+  id           Int      @id @default(autoincrement())
+  locationId   Int?
+  label        String // display name - the Location's name, or a manually entered name for one-offs
+  address      String // resolved address used for drive-time calculation
+  ticketNumber String?
+  priority     String? // "high" | "medium" | "low" - free-form tag, purely informational
+  order        Int
+  done         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([order])
+}

@@ -1,0 +1,46 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: field-tracker-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=file:/app/data/field-tracker.db
+    volumes:
+      - field-tracker-data:/app/data
+    networks:
+      - field-tracker
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: field-tracker-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      # Only expose to localhost; Nginx Proxy Manager reverse-proxies to this port.
+      # Change to "80:80" if you want it reachable directly without NPM.
+      - "8090:80"
+    networks:
+      - field-tracker
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: field-tracker-cloudflared
+    restart: unless-stopped
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - web
+    networks:
+      - field-tracker
+
+networks:
+  field-tracker:
+    driver: bridge
+
+volumes:
+  field-tracker-data:
