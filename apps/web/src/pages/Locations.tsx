@@ -5,10 +5,12 @@ export default function Locations() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
+  const [isOffice, setIsOffice] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editAddress, setEditAddress] = useState("");
+  const [editIsOffice, setEditIsOffice] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
@@ -25,9 +27,10 @@ export default function Locations() {
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || !address.trim()) return;
-    await api.createLocation({ name: name.trim(), address: address.trim() });
+    await api.createLocation({ name: name.trim(), address: address.trim(), isOffice });
     setName("");
     setAddress("");
+    setIsOffice(false);
     refresh();
   }
 
@@ -45,11 +48,17 @@ export default function Locations() {
     refresh();
   }
 
+  async function toggleOffice(loc: Location) {
+    await api.updateLocation(loc.id, { isOffice: !loc.isOffice });
+    refresh();
+  }
+
   function startEdit(loc: Location) {
     setError(null);
     setEditingId(loc.id);
     setEditName(loc.name);
     setEditAddress(loc.address);
+    setEditIsOffice(loc.isOffice);
   }
 
   function cancelEdit() {
@@ -59,7 +68,11 @@ export default function Locations() {
   async function saveEdit(id: number) {
     if (!editName.trim() || !editAddress.trim()) return;
     setError(null);
-    await api.updateLocation(id, { name: editName.trim(), address: editAddress.trim() });
+    await api.updateLocation(id, {
+      name: editName.trim(),
+      address: editAddress.trim(),
+      isOffice: editIsOffice,
+    });
     setEditingId(null);
     refresh();
   }
@@ -101,6 +114,19 @@ export default function Locations() {
           value={address}
           onChange={(e) => setAddress(e.target.value)}
         />
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            checked={isOffice}
+            onChange={(e) => setIsOffice(e.target.checked)}
+            className="accent-accent"
+          />
+          Office / Admin location
+        </label>
+        <p className="text-xs text-slate-500">
+          Office visits count as admin time (not incident time) and bracket your commutes so
+          drive time between the office and sites can be measured.
+        </p>
         <button type="submit" className="btn-secondary">
           Add Location
         </button>
@@ -133,6 +159,15 @@ export default function Locations() {
                       onChange={(e) => setEditAddress(e.target.value)}
                       placeholder="Address"
                     />
+                    <label className="flex items-center gap-2 text-sm text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={editIsOffice}
+                        onChange={(e) => setEditIsOffice(e.target.checked)}
+                        className="accent-accent"
+                      />
+                      Office / Admin location
+                    </label>
                     <div className="flex gap-2">
                       <button onClick={() => saveEdit(loc.id)} className="btn-secondary flex-1">
                         Save
@@ -151,6 +186,11 @@ export default function Locations() {
                       <p className="font-medium">
                         {loc.favorite ? "⭐ " : ""}
                         {loc.name}
+                        {loc.isOffice && (
+                          <span className="ml-2 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent">
+                            office
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-slate-400">{loc.address}</p>
                     </button>
@@ -161,6 +201,13 @@ export default function Locations() {
                         title="Toggle favorite"
                       >
                         {loc.favorite ? "★" : "☆"}
+                      </button>
+                      <button
+                        onClick={() => toggleOffice(loc)}
+                        className={`rounded-lg px-3 py-2 text-sm ${loc.isOffice ? "bg-accent/30 text-accent" : "bg-surfaceInput"}`}
+                        title="Toggle office/admin"
+                      >
+                        🏢
                       </button>
                       <button
                         onClick={() => startEdit(loc)}

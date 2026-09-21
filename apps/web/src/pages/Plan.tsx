@@ -24,6 +24,11 @@ export default function Plan() {
   const [priority, setPriority] = useState<string>("");
   const [reordering, setReordering] = useState(false);
   const [movingId, setMovingId] = useState<number | null>(null);
+
+  // Per-stop inline ticket editing
+  const [editingTicketId, setEditingTicketId] = useState<number | null>(null);
+  const [editingTicketValue, setEditingTicketValue] = useState("");
+  const [savingTicketId, setSavingTicketId] = useState<number | null>(null);
   const loadSeq = useRef(0);
 
   const sortedLocations = useMemo(
@@ -78,6 +83,33 @@ export default function Plan() {
       load();
     } catch {
       setError("Couldn't add that stop.");
+    }
+  }
+
+  function openTicketEdit(stop: PlanStop) {
+    setEditingTicketId(stop.id);
+    setEditingTicketValue(stop.ticketNumber ?? "");
+    setError(null);
+  }
+
+  function cancelTicketEdit() {
+    setEditingTicketId(null);
+    setEditingTicketValue("");
+  }
+
+  async function saveTicketEdit(stop: PlanStop) {
+    const value = editingTicketValue.trim();
+    setSavingTicketId(stop.id);
+    setError(null);
+    try {
+      await api.updatePlanStop(stop.id, { ticketNumber: value || null });
+      setEditingTicketId(null);
+      setEditingTicketValue("");
+      load();
+    } catch {
+      setError("Couldn't update the ticket number.");
+    } finally {
+      setSavingTicketId(null);
     }
   }
 
@@ -283,69 +315,103 @@ export default function Plan() {
                   )}
                 </div>
                 <p className="text-xs text-slate-400">{stop.address}</p>
-                {stop.ticketNumber && (
+                {stop.ticketNumber && editingTicketId !== stop.id && (
                   <p className="mt-1 text-xs font-mono text-slate-300">{stop.ticketNumber}</p>
                 )}
               </div>
               <span className="text-xs text-slate-500">#{i + 1}</span>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {stop.locationId && !stop.done && (
-                <button
-                  onClick={() => handleStartVisit(stop)}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-slate-900"
-                >
-                  Start Visit
-                </button>
-              )}
-              <button
-                onClick={() => toggleDone(stop)}
-                className="rounded-lg bg-surfaceInput px-3 py-1.5 text-sm"
-              >
-                {stop.done ? "Mark not done" : "Mark done"}
-              </button>
-              <button
-                onClick={() => remove(stop)}
-                className="rounded-lg bg-red-500/20 px-3 py-1.5 text-sm text-red-400"
-              >
-                Remove
-              </button>
-              <div className="flex items-center gap-1 ml-auto">
-                <button
-                  onClick={() => handleMoveToTop(stop)}
-                  disabled={i === 0 || reordering}
-                  className="rounded-lg bg-surfaceInput px-2 py-1.5 text-sm disabled:opacity-30"
-                  title="Move to top"
-                >
-                  ⤒
-                </button>
-                <button
-                  onClick={() => handleMoveUp(stop)}
-                  disabled={i === 0 || reordering}
-                  className="rounded-lg bg-surfaceInput px-2 py-1.5 text-sm disabled:opacity-30"
-                  title="Move up"
-                >
-                  ↑
-                </button>
-                <button
-                  onClick={() => handleMoveDown(stop)}
-                  disabled={i === stops.length - 1 || reordering}
-                  className="rounded-lg bg-surfaceInput px-2 py-1.5 text-sm disabled:opacity-30"
-                  title="Move down"
-                >
-                  ↓
-                </button>
-                <button
-                  onClick={() => handleMoveToBottom(stop)}
-                  disabled={i === stops.length - 1 || reordering}
-                  className="rounded-lg bg-surfaceInput px-2 py-1.5 text-sm disabled:opacity-30"
-                  title="Move to bottom"
-                >
-                  ⤓
-                </button>
+            {editingTicketId === stop.id ? (
+              <div className="mt-3 flex flex-col gap-2">
+                <input
+                  className="input"
+                  placeholder="Ticket # (INC/SCTASK...)"
+                  value={editingTicketValue}
+                  onChange={(e) => setEditingTicketValue(e.target.value)}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => saveTicketEdit(stop)}
+                    disabled={savingTicketId === stop.id}
+                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-slate-900 flex-1"
+                  >
+                    {savingTicketId === stop.id ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    onClick={cancelTicketEdit}
+                    className="rounded-lg bg-surfaceInput px-3 py-1.5 text-sm flex-1"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {stop.locationId && !stop.done && (
+                  <button
+                    onClick={() => handleStartVisit(stop)}
+                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-slate-900"
+                  >
+                    Start Visit
+                  </button>
+                )}
+                <button
+                  onClick={() => openTicketEdit(stop)}
+                  className="rounded-lg bg-surfaceInput px-3 py-1.5 text-sm"
+                  title={stop.ticketNumber ? "Edit ticket number" : "Add a ticket number"}
+                >
+                  {stop.ticketNumber ? "Edit ticket" : "+ Ticket"}
+                </button>
+                <button
+                  onClick={() => toggleDone(stop)}
+                  className="rounded-lg bg-surfaceInput px-3 py-1.5 text-sm"
+                >
+                  {stop.done ? "Mark not done" : "Mark done"}
+                </button>
+                <button
+                  onClick={() => remove(stop)}
+                  className="rounded-lg bg-red-500/20 px-3 py-1.5 text-sm text-red-400"
+                >
+                  Remove
+                </button>
+                <div className="flex items-center gap-1 ml-auto">
+                  <button
+                    onClick={() => handleMoveToTop(stop)}
+                    disabled={i === 0 || reordering}
+                    className="rounded-lg bg-surfaceInput px-2 py-1.5 text-sm disabled:opacity-30"
+                    title="Move to top"
+                  >
+                    ⤒
+                  </button>
+                  <button
+                    onClick={() => handleMoveUp(stop)}
+                    disabled={i === 0 || reordering}
+                    className="rounded-lg bg-surfaceInput px-2 py-1.5 text-sm disabled:opacity-30"
+                    title="Move up"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    onClick={() => handleMoveDown(stop)}
+                    disabled={i === stops.length - 1 || reordering}
+                    className="rounded-lg bg-surfaceInput px-2 py-1.5 text-sm disabled:opacity-30"
+                    title="Move down"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    onClick={() => handleMoveToBottom(stop)}
+                    disabled={i === stops.length - 1 || reordering}
+                    className="rounded-lg bg-surfaceInput px-2 py-1.5 text-sm disabled:opacity-30"
+                    title="Move to bottom"
+                  >
+                    ⤓
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -4,6 +4,7 @@ export interface Location {
   address: string;
   active: boolean;
   favorite: boolean;
+  isOffice: boolean;
 }
 
 export interface Ticket {
@@ -46,6 +47,16 @@ export interface PlanStop {
   distanceFromPrevious: { miles: number; estimated: boolean } | null;
 }
 
+export interface TimeSplit {
+  workingMinutes: number;
+  adminMinutes: number;
+  driveMinutes: number;
+  workingFormatted: string;
+  adminFormatted: string;
+  driveFormatted: string;
+  totalFormatted: string;
+}
+
 export interface DashboardData {
   visitsThisMonth: number;
   hoursOnsiteThisMonth: string;
@@ -54,6 +65,7 @@ export interface DashboardData {
   topLocations: { name: string; count: number }[];
   recentVisits: Visit[];
   activeVisit: Visit | null;
+  timeSplit: TimeSplit;
 }
 
 class ApiError extends Error {
@@ -100,7 +112,7 @@ export const api = {
 
   getLocations: (includeInactive = false) =>
     request<Location[]>(`/locations${includeInactive ? "?includeInactive=true" : ""}`),
-  createLocation: (data: { name: string; address: string; favorite?: boolean }) =>
+  createLocation: (data: { name: string; address: string; favorite?: boolean; isOffice?: boolean }) =>
     request<Location>("/locations", { method: "POST", body: JSON.stringify(data) }),
   updateLocation: (id: number, data: Partial<Location>) =>
     request<Location>(`/locations/${id}`, { method: "PUT", body: JSON.stringify(data) }),

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { buildVisitsCsv, formatDuration } from "../services/csv";
+import { splitTime } from "../services/timeSplit";
 
 export const reportsRouter = Router();
 
@@ -15,6 +16,8 @@ function endOfDay(d: Date) {
   return x;
 }
 
+// getVisitsInRange returns visits ordered by startTime ASCENDING — this ordering is
+// required by splitTime() (drive time is measured between consecutive same-day visits).
 async function getVisitsInRange(from: Date, to: Date) {
   return prisma.visit.findMany({
     where: { startTime: { gte: from, lte: to } },
@@ -25,18 +28,48 @@ async function getVisitsInRange(from: Date, to: Date) {
 
 type VisitWithRelations = Awaited<ReturnType<typeof getVisitsInRange>>[number];
 
-function toRow(visit: VisitWithRelations) {
+// Adapt a fully-related visit (with location) into the lean TimeVisit shape splitTime() expects.
+function toTimeVisit(v: VisitWithRelations) {
+  return {
+    startTime: v.startTime,
+    endTime: v.endTime,
+    durationMinutes: v.durationMinutes,
+    isOffice: v.location.isOffice ?? false,
+  };
+}
+
+function mapToTimeVisits(visits: VisitWithRelations[]) {
+  return visits.map(toTimeVisit);
+}
+
+function toRow(visit: VisitWithRelations, driveMinutes = 0) {
   return {
     id: visit.id,
     date: visit.startTime.toISOString().slice(0, 10),
     location: visit.location.name,
+    isOffice: visit.location.isOffice ?? false,
     start: visit.startTime.toISOString(),
     end: visit.endTime ? visit.endTime.toISOString() : "",
     durationMinutes: visit.durationMinutes,
     durationFormatted: formatDuration(visit.durationMinutes),
     tickets: visit.tickets.map((t: { ticketNumber: string }) => t.ticketNumber).join("; "),
     mileage: visit.mileage?.distanceMiles ?? 0,
+    driveMinutes,
     notes: visit.notes ?? "",
+  };
+}
+
+// Time-split summary card shared by daily & monthly views.
+function timeSplitCard(visits: VisitWithRelations[]) {
+  const split = splitTime(mapToTimeVisits(visits));
+  return {
+    workingMinutes: split.workingMinutes,
+    adminMinutes: split.adminMinutes,
+    driveMinutes: split.driveMinutes,
+    workingFormatted: formatDuration(split.workingMinutes),
+    adminFormatted: formatDuration(split.adminMinutes),
+    driveFormatted: formatDuration(split.driveMinutes),
+    totalFormatted: formatDuration(split.workingMinutes + split.adminMinutes + split.driveMinutes),
   };
 }
 
@@ -44,7 +77,16 @@ function toRow(visit: VisitWithRelations) {
 reportsRouter.get("/daily", async (req, res) => {
   const dateParam = req.query.date ? new Date(String(req.query.date)) : new Date();
   const visits = await getVisitsInRange(startOfDay(dateParam), endOfDay(dateParam));
-  res.json({ date: dateParam.toISOString().slice(0, 10), visits: visits.map(toRow) });
+  const split = splitTime(mapToTimeVisits(visits));
+  res.json({
+    date: dateParam.toISOString().slice(0, 10),
+    visits: visits.map((v, i) => toRow(v, split.perVisitDriveMinutes[i])),
+    timeSplit: {
+      workingFormatted: formatDuration(split.workingMinutes),
+      adminFormatted: formatDuration(split.adminMinutes),
+      driveFormatted: formatDuration(split.driveMinutes),
+    },
+  });
 });
 
 // Monthly report
@@ -68,6 +110,8 @@ reportsRouter.get("/monthly", async (req, res) => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
+  const split = splitTime(mapToTimeVisits(visits));
+
   res.json({
     year,
     month,
@@ -76,7 +120,8 @@ reportsRouter.get("/monthly", async (req, res) => {
     totalHoursFormatted: formatDuration(totalMinutes),
     totalMileage: Math.round(totalMileage * 10) / 10,
     mostVisited,
-    visits: visits.map(toRow),
+    timeSplit: timeSplitCard(visits),
+    visits: visits.map((v, i) => toRow(v, split.perVisitDriveMinutes[i])),
   });
 });
 
@@ -115,6 +160,7 @@ reportsRouter.get("/dashboard", async (_req, res) => {
     hoursOnsiteThisMonth: formatDuration(totalMinutes),
     minutesOnsiteThisMonth: totalMinutes,
     mileageThisMonth: Math.round(totalMileage * 10) / 10,
+    timeSplit: timeSplitCard(visits),
     topLocations,
     recentVisits,
     activeVisit,
@@ -160,7 +206,8 @@ reportsRouter.get("/export/csv", async (req, res) => {
   }
 
   const visits = await getVisitsInRange(fromDate, toDate);
-  const csv = buildVisitsCsv(visits.map(toRow));
+  const split = splitTime(mapToTimeVisits(visits));
+  const csv = buildVisitsCsv(visits.map((v, i) => toRow(v, split.perVisitDriveMinutes[i])));
 
   const filename = `field-tracker-${range ?? "custom"}-${fromDate.toISOString().slice(0, 10)}_to_${toDate
     .toISOString()

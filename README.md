@@ -10,8 +10,10 @@ Built for a **single technician**, self-hosted on your own server, exposed safel
 - **Ticket tracking** — attach multiple ticket numbers (INC/SCTASK/etc.) to a single visit.
 - **Automatic mileage** — starting a new visit after a previous one at a different location auto-calculates driving distance between the two addresses (no GPS required) via a pluggable routing provider (OpenRouteService, Google Maps, or MapQuest).
 - **Editable visit times** — forgot to end a visit,or started it the wrong day? On the **Daily** report, tap **Edit times**, fix the start/end, and duration recalculates automatically. You can even move a visit to a different day.
+- **Day Plan with ticket editing** — plan your stops for the day, reorder them, and attach INC/SCTASK ticket numbers directly to stops — before or after they're added. When you **Start Visit** from a plan stop, its ticket rides along automatically.
+- **Admin + drive time split** — flag any location as an **Office/Admin** location. Visits at it count as admin time instead of incident time, and bracket your commutes. Reports and the dashboard break your month/day into **Working (on incidents) / Admin (office) / Driving** time — with drive time *measured* from the real gaps between stops (catching actual traffic), not estimated.
 - **Daily & monthly reports + dashboard** — visits, time, tickets, mileage, and notes at a glance; this-month totals, top locations, active-visit status. You can also delete a visit outright.
-- **CSV export** — daily, weekly, monthly, or custom date range, formatted for Workday mileage reporting and quick reference when logging time in ServiceNow.
+- **CSV export** — daily, weekly, monthly, or custom date range, formatted for Workday mileage reporting and quick reference when logging time in ServiceNow. Includes a **Drive Minutes** column per visit.
 - **Offline-first PWA** — install it to your Android or iPhone home screen; start/end visits and add tickets while offline, sync automatically when you're back online (with a clear "N pending / syncing" status banner)\.
 - **Dark mode, large touch targets, mobile-first** — designed to be used one-handed, walking between buildings.
 
@@ -168,6 +170,49 @@ cd apps/api && npm run seed
 
 Re-running is safe — locations that already exist are skipped.
 
+
+
+## How Time Tracking & the Working/Admin/Driving Split Works
+
+Wayfinder separates your day into three measured buckets and shows them on the Dashboard,
+Daily report, and Monthly report:
+
+- **Working (on incidents)** — time logged at regular (non-office) locations.
+- **Admin (office)** — time logged at a location you've flagged as an **Office / Admin** location.
+- **Driving** — measured between consecutive visits in the same day.
+
+### The recommended daily workflow
+
+To get accurate working/admin/driving numbers, bracket your commutes with visits at the office:
+
+1. Morning — arrive at the office, tap **Start Visit** on your office location.
+2. Leaving — tap **End Visit** (you get in the truck to drive to your first site).
+3. At each site — **Start Visit** on arrival, **End Visit** when you leave.
+4. Evening — return to the office, **Start Visit**, and **End Visit** when you're done for the day.
+
+Because you log this way, every drive (office → first site, site → site, last site → office)
+is the measured gap between an ended visit and the next started visit — so actual traffic and
+wrecks count, not an estimated route time.
+
+### How drive time is computed
+
+Drive time is **measured**, never estimated: it's the same-day gap between the end of one visit
+and the start of the next. It is intentionally *not* pulled from a routing provider's
+time estimate, so a 45-minute wreck on a usually-20-minute drive counts as 45 minutes.
+Overnight gaps are excluded (you don't get a 14-hour "drive" between yesterday's last visit
+and today's first), and only visits with an end time bracket a drive.
+
+### Setting up the office
+
+In **Locations**, flag a location as an **Office / Admin** location (a dedicated office location
+is recommended over using a site you also run incident tickets at). Visits at it then count as
+**Admin** instead of **Working**, and its drive gaps are measured like any other stop. All other
+locations default to `isOffice = false`, so existing data is unaffected until you flag one.
+
+### CSV export
+
+The CSV export includes a **Drive Minutes** column on each visit row, so your Workday/ServiceNow
+workflow carries both time and mileage in a single file.
 
 
 ## How Mileage Calculation Works

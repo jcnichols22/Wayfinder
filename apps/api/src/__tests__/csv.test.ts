@@ -19,16 +19,18 @@ describe("csv export", () => {
         durationFormatted: "1h 30m",
         tickets: "INC1453201; SCTASK0557608",
         mileage: 12.4,
+        driveMinutes: 35,
         notes: "Replaced, switch",
       },
     ]);
 
     const lines = csv.split("\n");
     expect(lines[0]).toBe(
-      "Date,Location,Start,End,Duration Minutes,Duration Formatted,Tickets,Mileage,Notes"
+      "Date,Location,Start,End,Duration Minutes,Duration Formatted,Tickets,Mileage,Drive Minutes,Notes"
     );
     expect(lines[1]).toContain("Beatty");
     expect(lines[1]).toContain("1h 30m");
+    expect(lines[1]).toContain("35");
     // Notes containing a comma should be quoted
     expect(lines[1]).toContain('"Replaced, switch"');
   });

@@ -13,19 +13,19 @@ locationsRouter.get("/", async (req, res) => {
 });
 
 locationsRouter.post("/", async (req, res) => {
-  const { name, address, favorite } = req.body ?? {};
+  const { name, address, favorite, isOffice } = req.body ?? {};
   if (!name || !address) {
     return res.status(400).json({ error: "name and address are required" });
   }
   const location = await prisma.location.create({
-    data: { name, address, favorite: Boolean(favorite) },
+    data: { name, address, favorite: Boolean(favorite), isOffice: Boolean(isOffice) },
   });
   res.status(201).json(location);
 });
 
 locationsRouter.put("/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const { name, address, active, favorite } = req.body ?? {};
+  const { name, address, active, favorite, isOffice } = req.body ?? {};
   try {
     const location = await prisma.location.update({
       where: { id },
@@ -34,6 +34,7 @@ locationsRouter.put("/:id", async (req, res) => {
         ...(address !== undefined && { address }),
         ...(active !== undefined && { active }),
         ...(favorite !== undefined && { favorite }),
+        ...(isOffice !== undefined && { isOffice }),
       },
     });
     res.json(location);

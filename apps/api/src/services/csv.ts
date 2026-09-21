@@ -7,6 +7,7 @@ interface VisitRow {
   durationFormatted: string;
   tickets: string;
   mileage: number;
+  driveMinutes: number;
   notes: string;
 }
 
@@ -35,6 +36,7 @@ export function buildVisitsCsv(rows: VisitRow[]): string {
     "Duration Formatted",
     "Tickets",
     "Mileage",
+    "Drive Minutes",
     "Notes",
   ];
   const lines = [header.join(",")];
@@ -49,6 +51,7 @@ export function buildVisitsCsv(rows: VisitRow[]): string {
         csvEscape(row.durationFormatted),
         csvEscape(row.tickets),
         csvEscape(row.mileage),
+        csvEscape(row.driveMinutes),
         csvEscape(row.notes),
       ].join(",")
     );

@@ -8,6 +8,12 @@ interface MonthlyData {
   totalHoursFormatted: string;
   totalMileage: number;
   mostVisited: { name: string; count: number }[];
+  timeSplit: {
+    workingFormatted: string;
+    adminFormatted: string;
+    driveFormatted: string;
+    totalFormatted: string;
+  };
   visits: {
     date: string;
     location: string;
@@ -105,6 +111,28 @@ export default function MonthlyReport() {
               <p className="text-xs text-slate-400">Most Visited</p>
               <p className="text-lg font-bold">{data.mostVisited[0]?.name ?? "—"}</p>
             </div>
+          </div>
+
+          <div className="card">
+            <p className="mb-2 text-sm font-semibold text-slate-300">Time split</p>
+            <ul className="flex flex-col gap-1.5">
+              <li className="flex justify-between text-sm">
+                <span>Working (on incidents)</span>
+                <span className="text-slate-300">{data.timeSplit.workingFormatted}</span>
+              </li>
+              <li className="flex justify-between text-sm">
+                <span>Admin (office)</span>
+                <span className="text-slate-300">{data.timeSplit.adminFormatted}</span>
+              </li>
+              <li className="flex justify-between text-sm">
+                <span>Driving</span>
+                <span className="text-slate-300">{data.timeSplit.driveFormatted}</span>
+              </li>
+              <li className="flex justify-between text-sm border-t border-borderMuted pt-1.5">
+                <span>Total</span>
+                <span className="font-medium text-slate-200">{data.timeSplit.totalFormatted}</span>
+              </li>
+            </ul>
           </div>
 
           <div className="card">

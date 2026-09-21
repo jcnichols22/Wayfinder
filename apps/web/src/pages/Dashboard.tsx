@@ -24,6 +24,8 @@ export default function Dashboard() {
   if (error) return <p className="text-amber-400">{error}</p>;
   if (!data) return <p className="text-slate-400">Loading…</p>;
 
+  const ts = data.timeSplit;
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">Dashboard</h1>
@@ -40,6 +42,28 @@ export default function Dashboard() {
         <StatCard label="Hours onsite" value={data.hoursOnsiteThisMonth} />
         <StatCard label="Mileage" value={`${data.mileageThisMonth} mi`} />
         <StatCard label="Top location" value={data.topLocations[0]?.name ?? "—"} />
+      </div>
+
+      <div className="card">
+        <p className="mb-2 text-sm font-semibold text-slate-300">Time this month</p>
+        <ul className="flex flex-col gap-1.5">
+          <li className="flex justify-between text-sm">
+            <span>Working (on incidents)</span>
+            <span className="text-slate-300">{ts.workingFormatted}</span>
+          </li>
+          <li className="flex justify-between text-sm">
+            <span>Admin (office)</span>
+            <span className="text-slate-300">{ts.adminFormatted}</span>
+          </li>
+          <li className="flex justify-between text-sm">
+            <span>Driving</span>
+            <span className="text-slate-300">{ts.driveFormatted}</span>
+          </li>
+          <li className="flex justify-between text-sm border-t border-borderMuted pt-1.5">
+            <span>Total</span>
+            <span className="font-medium text-slate-200">{ts.totalFormatted}</span>
+          </li>
+        </ul>
       </div>
 
       <div className="card">

@@ -5,12 +5,19 @@ interface DailyRow {
   id: number;
   date: string;
   location: string;
+  isOffice: boolean;
   start: string;
   end: string | null;
   durationFormatted: string;
   tickets: string;
   mileage: number;
   notes: string;
+}
+
+interface DaySplit {
+  workingFormatted: string;
+  adminFormatted: string;
+  driveFormatted: string;
 }
 
 function toLocalInput(iso: string): string {
@@ -26,6 +33,7 @@ function toIso(localInput: string): string {
 export default function DailyReport() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [visits, setVisits] = useState<DailyRow[]>([]);
+  const [timeSplit, setTimeSplit] = useState<DaySplit | null>(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -41,7 +49,10 @@ export default function DailyReport() {
     setLoading(true);
     api
       .getDailyReport(date)
-      .then((res: any) => setVisits(res.visits))
+      .then((res: any) => {
+        setVisits(res.visits);
+        setTimeSplit(res.timeSplit as DaySplit);
+      })
       .finally(() => setLoading(false));
   }
 
@@ -123,6 +134,26 @@ export default function DailyReport() {
         onChange={(e) => setDate(e.target.value)}
       />
 
+      {timeSplit && visits.length > 0 && (
+        <div className="card">
+          <p className="mb-2 text-sm font-semibold text-slate-300">Time split</p>
+          <ul className="flex flex-col gap-1.5">
+            <li className="flex justify-between text-sm">
+              <span>Working (on incidents)</span>
+              <span className="text-slate-300">{timeSplit.workingFormatted}</span>
+            </li>
+            <li className="flex justify-between text-sm">
+              <span>Admin (office)</span>
+              <span className="text-slate-300">{timeSplit.adminFormatted}</span>
+            </li>
+            <li className="flex justify-between text-sm">
+              <span>Driving</span>
+              <span className="text-slate-300">{timeSplit.driveFormatted}</span>
+            </li>
+          </ul>
+        </div>
+      )}
+
       <button onClick={handleExport} disabled={exporting} className="btn-secondary text-center">
         {exporting ? "Exporting…" : "⬇ Export CSV"}
       </button>
@@ -176,7 +207,14 @@ export default function DailyReport() {
               ) : (
                 <>
                   <div className="flex items-center justify-between">
-                    <h2 className="font-semibold">{v.location}</h2>
+                    <h2 className="font-semibold">
+                      {v.location}
+                      {v.isOffice && (
+                        <span className="ml-1.5 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent">
+                          admin
+                        </span>
+                      )}
+                    </h2>
                     <span className="text-sm text-accent">{v.durationFormatted}</span>
                   </div>
                   <p className="text-xs text-slate-400">

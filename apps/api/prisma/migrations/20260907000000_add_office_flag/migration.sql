@@ -1,0 +1,1 @@
+ALTER TABLE "Location" ADD COLUMN "isOffice" BOOLEAN NOT NULL DEFAULT false;
